@@ -29,19 +29,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
 
-    <title>Barebones AR</title>
+    <title>Inline AR (almost)</title>
   </head>
   <body>
     <div id="overlay">
       <header>
         <details open>
-          <summary>Barebones WebXR DOM Overlay</summary>
+          <summary>WebXR Inline AR (almost) demo</summary>
           <p>
-            This sample demonstrates extremely simple use of an "immersive-ar"
-            session with no library dependencies, with an optional DOM overlay.
-            It doesn't render anything exciting, just draws a rectangle with a
-            slowly changing color to prove it's working.
-            <a class="back" href="./index.html">Back</a>
+            This sample demonstrates how an immersive-ar session with
+            camera-access and dom-overlay can be used to render an AR
+            scene to a separate DOM canvas with correct frame sync
+            and reasonable performance.
+          </p>
+          <p>
+            A native "inline-ar" session type would be preferable to
+            avoid the enforced full-screen switch and to offer better
+            performance.
           </p>
           <div id="session-info"></div>
           <div id="pose"></div>
@@ -49,6 +53,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           <button id="xr-button" class="barebones-button" disabled>XR not found</button>
         </details>
       </header>
+      <canvas id="inline-canvas" width="150" height="150"></canvas>
     </div>
     <main style='text-align: center;'>
       <p>Click 'Enter AR' to see content</p>
@@ -58,9 +63,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = document.getElementById('xr-button');
       let xrSession = null;
       let xrRefSpace = null;
+      let xrGlBinding = null;
 
       // WebGL scene globals.
-      let gl = null;
+      let xrCanvas = new OffscreenCanvas(256, 256);
+      let xrGl = xrCanvas.getContext('webgl', {
+          xrCompatible: true
+      });
+      let vertexBuffer = null;
+      let program = null;
+
+      setupXRContext();
+
+      let bitmapRenderer = document.getElementById('inline-canvas').getContext('bitmaprenderer');
 
       function checkSupportedState() {
         navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
@@ -91,6 +106,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (!xrSession) {
             // Ask for an optional DOM Overlay, see https://immersive-web.github.io/dom-overlays/
             navigator.xr.requestSession('immersive-ar', {
+                requiredFeatures: ['camera-access'],
                 optionalFeatures: ['dom-overlay'],
                 domOverlay: {root: document.getElementById('overlay')}
             }).then(onSessionStarted, onRequestSessionError);
@@ -109,11 +125,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         session.addEventListener('end', onSessionEnded);
-        let canvas = document.createElement('canvas');
-        gl = canvas.getContext('webgl', {
-          xrCompatible: true
-        });
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        xrGlBinding = new XRWebGLBinding(session, xrGl);
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, xrGl) });
         session.requestReferenceSpace('local').then((refSpace) => {
           xrRefSpace = refSpace;
           session.requestAnimationFrame(onXRFrame);
@@ -133,25 +146,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrSession = null;
         xrButton.innerHTML = 'Enter AR';
         document.getElementById('session-info').innerHTML = '';
-        gl = null;
       }
 
       function onXRFrame(t, frame) {
         let session = frame.session;
         session.requestAnimationFrame(onXRFrame);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
-
-        // Update the clear color so that we can observe the color in the
-        // headset changing over time. Use a scissor rectangle to keep the AR
-        // scene visible.
-        const width = session.renderState.baseLayer.framebufferWidth;
-        const height = session.renderState.baseLayer.framebufferHeight;
-        gl.enable(gl.SCISSOR_TEST);
-        gl.scissor(width / 4, height / 4, width / 2, height / 2);
-        let time = Date.now();
-        gl.clearColor(Math.cos(time / 2000), Math.cos(time / 4000), Math.cos(time / 6000), 0.5);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // This demo doesn't render anything to the baseLayer.framebuffer
+        // The only thing it does in the onXRFrame callback is to obtain the
+        // XR camera texture as an ImageBitmap
 
         let pose = frame.getViewerPose(xrRefSpace);
         if (pose) {
@@ -161,9 +164,129 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         } else {
           document.getElementById('pose').innerText = "Position: (null pose)";
         }
+
+        // Get the camera texture if one can be found
+        // Side note: It's a shame we can't get the camera texture if pose is null
+        // (on ARCore this happens if tracking is initializing or temporarily lost)
+        if(!pose) return;
+
+        let camera = null;
+        let texture = null;
+        for(const view of pose.views) {
+          if(!view.camera) continue;
+          
+          texture = xrGlBinding.getCameraImage(view.camera);
+          if(!texture) continue;
+
+          camera = view.camera;
+          break;
+        }
+
+        // Couldn't get the texture
+        if(!texture) return;
+
+        // Update the OffscreenCanvas size to match
+        if(camera.width != xrCanvas.width || camera.height != xrCanvas.height) {
+          xrCanvas.width = camera.width;
+          xrCanvas.height = camera.height;
+          xrGl.viewport(0, 0, xrCanvas.width, xrCanvas.height);
+        }
+        
+        // Blit the camera texture to the OffscreenCanvas
+        xrGl.bindTexture(xrGl.TEXTURE_2D, texture);
+        xrGl.drawArrays(xrGl.TRIANGLE_STRIP, 0, 4);
+        xrGl.bindTexture(xrGl.TEXTURE_2D, null);
+
+        // Transfer to image bitmap
+        let ib = xrCanvas.transferToImageBitmap();
+
+        // Pass to another function to render to the inline canvas
+        renderInlineXRFrame(t, frame, ib);
+      }
+
+      function renderInlineXRFrame(t, frame, ib) {
+        // Ensure the inline canvas has right aspect ratio
+        let inlineCanvasHeight = Math.round(bitmapRenderer.canvas.width * ib.height / ib.width);
+        if(bitmapRenderer.canvas.height != inlineCanvasHeight) {
+          bitmapRenderer.canvas.height = inlineCanvasHeight;
+        }
+
+        // For now just transfer the ImageBitmap to the inline canvas
+        bitmapRenderer.transferFromImageBitmap(ib);
       }
 
       initXR();
+
+      function setupXRContext() {
+        let vertexData = new Float32Array([ 
+            -1.0, -1.0,
+            -1.0,  1.0,
+             1.0, -1.0,
+             1.0,  1.0]);
+
+        vertexBuffer = xrGl.createBuffer();
+        xrGl.bindBuffer(xrGl.ARRAY_BUFFER, vertexBuffer);
+        xrGl.bufferData(xrGl.ARRAY_BUFFER, vertexData, xrGl.STATIC_DRAW);
+
+        const aPositionLoc = 0;
+        xrGl.vertexAttribPointer(aPositionLoc, 2, xrGl.FLOAT, false, 0, 0);
+        xrGl.enableVertexAttribArray(aPositionLoc);
+
+        const blitVsSource = `
+            attribute vec4 aPosition;
+            varying highp vec2 vUV;
+
+            void main(void) {
+              gl_Position = aPosition;
+              vUV = 0.5 * (aPosition.xy + vec2(1.0, 1.0));
+            }
+        `;
+
+        const blitFsSource = `
+          varying highp vec2 vUV;
+          uniform sampler2D uTexture;
+
+          void main(void) {
+            gl_FragColor = texture2D(uTexture, vUV);
+          }
+        `;
+
+        let program = xrGl.createProgram();
+        let vertexShader = compileShader(xrGl, xrGl.VERTEX_SHADER, blitVsSource);
+        let fragmentShader = compileShader(xrGl, xrGl.FRAGMENT_SHADER, blitFsSource);
+        xrGl.attachShader(program, vertexShader);
+        xrGl.attachShader(program, fragmentShader);
+        xrGl.bindAttribLocation(program, aPositionLoc, "aPosition");
+        linkProgram(xrGl, program);
+
+        let uTextureLoc = xrGl.getUniformLocation(program, "uTexture");
+
+        xrGl.useProgram(program);
+        xrGl.uniform1i(uTextureLoc, 0);
+
+        let err = xrGl.getError();
+        if(err != xrGl.NO_ERROR) zcout(`Camera Texture Demo: Error in setupContext(): 0x${err.toString(16)}`);
+      }
+
+      function compileShader(gl, type, src) {
+        let ret = gl.createShader(type);
+        if (!ret) throw new Error("Unable to create shader");
+      
+        gl.shaderSource(ret, src);
+        gl.compileShader(ret);
+      
+        let msg = gl.getShaderInfoLog(ret);
+        if (msg && msg.trim().length > 0) throw new Error("Shader compile error: " + msg);
+      
+        return ret;
+      }
+  
+      function linkProgram(gl, prog) {
+          gl.linkProgram(prog);
+          let msg = gl.getProgramInfoLog(prog);
+          if (msg && msg.trim().length > 0) throw new Error("Unable to link: " + msg);
+      }
+
     </script>
   </body>
 </html>
