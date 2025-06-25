@@ -31,8 +31,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <title>Inline AR (almost)</title>
   </head>
-  <body>
-    <div id="overlay">
+  <body class="fill-height">
+    <div>
       <header>
         <details open>
           <summary>WebXR Inline AR (almost) demo</summary>
@@ -50,15 +50,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           <div id="session-info"></div>
           <div id="pose"></div>
           <div id="warning-zone"></div>
+          <div>
+            <input type="checkbox" id="body-fill-height" checked />
+            <label for="body-fill-height">Set min-height: 100% for body element</label>
+          </div>
           <button id="xr-button" class="barebones-button" disabled>XR not found</button>
         </details>
       </header>
       <canvas id="inline-canvas" width="150" height="150"></canvas>
     </div>
-    <main style='text-align: center;'>
-      <p>Click 'Enter AR' to see content</p>
-    </main>
     <script type="module">
+      let bodyFillHeightCheckbox = document.getElementById('body-fill-height');
+      bodyFillHeightCheckbox.addEventListener('change', (ev) => {
+        if(bodyFillHeightCheckbox.checked) {
+          document.body.classList.add('fill-height');
+        } else {
+          document.body.classList.remove('fill-height');
+        }
+      });
+
       // XR globals.
       let xrButton = document.getElementById('xr-button');
       let xrSession = null;
@@ -108,7 +118,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             navigator.xr.requestSession('immersive-ar', {
                 requiredFeatures: ['camera-access'],
                 optionalFeatures: ['dom-overlay'],
-                domOverlay: {root: document.getElementById('overlay')}
+                domOverlay: {root: document.documentElement }
             }).then(onSessionStarted, onRequestSessionError);
         } else {
           xrSession.end();
