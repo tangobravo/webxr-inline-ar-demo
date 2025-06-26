@@ -99,6 +99,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let vertexBuffer = null;
       let program = null;
 
+      const identityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+
       setupContext(xrGl);
 
       // Inline WebGL canvas
@@ -106,6 +108,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let inlineGl = inlineCanvas.getContext('webgl');
       let inlineCameraTexture;
       let inlineLogoTexture;
+      let inlineProjectionLoc;
+      let inlineViewLoc;
       let inlineVertScaleLoc;
 
       setupInlineContext();
@@ -159,7 +163,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.addEventListener('end', onSessionEnded);
         xrGlBinding = new XRWebGLBinding(session, xrGl);
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, xrGl) });
+        session.updateRenderState({
+          baseLayer: new XRWebGLLayer(session, xrGl),
+          depthNear: 0.01,
+          depthFar: 100 });
         xrViewerRefSpace = await session.requestReferenceSpace('viewer');
         xrLocalRefSpace = await session.requestReferenceSpace('local');
 
@@ -204,6 +211,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         let camera = null;
         let texture = null;
+        let cameraProjection = null;
         for(const view of pose.views) {
           if(!view.camera) continue;
           
@@ -211,6 +219,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           if(!texture) continue;
 
           camera = view.camera;
+          cameraProjection = view.projectionMatrix;
           break;
         }
 
@@ -233,10 +242,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let ib = xrCanvas.transferToImageBitmap();
 
         // Pass to another function to render to the inline canvas
-        renderInlineXRFrame(t, frame, ib);
+        renderInlineXRFrame(t, frame, cameraProjection, ib);
       }
 
-      function renderInlineXRFrame(t, frame, ib) {
+      function renderInlineXRFrame(t, frame, cameraProjection, ib) {
         const gl = inlineGl;
 
         // Ensure the inline canvas has right aspect ratio
@@ -258,13 +267,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         ib.close();
 
         // Blit the camera image
+        gl.uniformMatrix4fv(inlineProjectionLoc, false, identityMatrix);
+        gl.uniformMatrix4fv(inlineViewLoc, false, identityMatrix);
         gl.uniform4f(inlineVertScaleLoc, 1, -1, 1, 1);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
         // Draw the logo texture
-        gl.bindTexture(gl.TEXTURE_2D, inlineLogoTexture);
-        gl.uniform4f(inlineVertScaleLoc, 0.1, -0.1, 0.1, 1);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        let localToViewer = frame.getPose(xrLocalRefSpace, xrViewerRefSpace);
+        if(localToViewer) {
+          gl.bindTexture(gl.TEXTURE_2D, inlineLogoTexture);
+          gl.uniformMatrix4fv(inlineProjectionLoc, false, cameraProjection);
+          gl.uniformMatrix4fv(inlineViewLoc, false, localToViewer.transform.matrix);
+          gl.uniform4f(inlineVertScaleLoc, 0.1, -0.1, 0.1, 1);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
       }
 
       initXR();
@@ -285,12 +301,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.enableVertexAttribArray(aPositionLoc);
 
         const blitVsSource = `
+            uniform mat4 uProjection;
+            uniform mat4 uView;
             uniform vec4 uVertScale;
             attribute vec4 aPosition;
             varying highp vec2 vUV;
 
             void main(void) {
-              gl_Position = aPosition * uVertScale;
+              gl_Position = uProjection * uView * (uVertScale * aPosition);
               vUV = 0.5 * (aPosition.xy + vec2(1.0, 1.0));
             }
         `;
@@ -317,20 +335,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.useProgram(program);
         gl.uniform1i(uTextureLoc, 0);
 
+        let uProjectionLoc = gl.getUniformLocation(program, "uProjection");
+        gl.uniformMatrix4fv(uProjectionLoc, false, identityMatrix);
+
+        let uViewLoc = gl.getUniformLocation(program, "uView");
+        gl.uniformMatrix4fv(uViewLoc, false, identityMatrix);
+
         let uVertScaleLoc = gl.getUniformLocation(program, "uVertScale");
         gl.uniform4f(uVertScaleLoc, 1, 1, 1, 1);
 
         let err = gl.getError();
         if(err != gl.NO_ERROR) zcout(`Camera Texture Demo: Error in setupContext(): 0x${err.toString(16)}`);
 
-        return {uTextureLoc, uVertScaleLoc};
+        return {
+          uTextureLoc,
+          uProjectionLoc,
+          uViewLoc,
+          uVertScaleLoc};
       }
 
       function setupInlineContext() {
         const gl = inlineGl;
 
         // Inline context reuses same blit program and vertex data as the xrGl one
-        let {uVertScaleLoc} = setupContext(gl);
+        let {uProjectionLoc, uViewLoc, uVertScaleLoc} = setupContext(gl);
+        inlineProjectionLoc = uProjectionLoc;
+        inlineViewLoc = uViewLoc;
         inlineVertScaleLoc = uVertScaleLoc;
 
         // Image bitmap from the OffscreenCanvas needs a flip
