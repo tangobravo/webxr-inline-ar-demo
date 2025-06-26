@@ -98,7 +98,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let vertexBuffer = null;
       let program = null;
 
-      setupXRContext();
+      setupContext(xrGl);
 
       let bitmapRenderer = document.getElementById('inline-canvas').getContext('bitmaprenderer');
 
@@ -242,20 +242,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       initXR();
 
-      function setupXRContext() {
+      function setupContext(gl) {
         let vertexData = new Float32Array([ 
             -1.0, -1.0,
             -1.0,  1.0,
              1.0, -1.0,
              1.0,  1.0]);
 
-        vertexBuffer = xrGl.createBuffer();
-        xrGl.bindBuffer(xrGl.ARRAY_BUFFER, vertexBuffer);
-        xrGl.bufferData(xrGl.ARRAY_BUFFER, vertexData, xrGl.STATIC_DRAW);
+        vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
         const aPositionLoc = 0;
-        xrGl.vertexAttribPointer(aPositionLoc, 2, xrGl.FLOAT, false, 0, 0);
-        xrGl.enableVertexAttribArray(aPositionLoc);
+        gl.vertexAttribPointer(aPositionLoc, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(aPositionLoc);
 
         const blitVsSource = `
             attribute vec4 aPosition;
@@ -276,21 +276,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           }
         `;
 
-        let program = xrGl.createProgram();
-        let vertexShader = compileShader(xrGl, xrGl.VERTEX_SHADER, blitVsSource);
-        let fragmentShader = compileShader(xrGl, xrGl.FRAGMENT_SHADER, blitFsSource);
-        xrGl.attachShader(program, vertexShader);
-        xrGl.attachShader(program, fragmentShader);
-        xrGl.bindAttribLocation(program, aPositionLoc, "aPosition");
-        linkProgram(xrGl, program);
+        let program = gl.createProgram();
+        let vertexShader = compileShader(gl, gl.VERTEX_SHADER, blitVsSource);
+        let fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, blitFsSource);
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.bindAttribLocation(program, aPositionLoc, "aPosition");
+        linkProgram(gl, program);
 
-        let uTextureLoc = xrGl.getUniformLocation(program, "uTexture");
+        let uTextureLoc = gl.getUniformLocation(program, "uTexture");
 
-        xrGl.useProgram(program);
-        xrGl.uniform1i(uTextureLoc, 0);
+        gl.useProgram(program);
+        gl.uniform1i(uTextureLoc, 0);
 
-        let err = xrGl.getError();
-        if(err != xrGl.NO_ERROR) zcout(`Camera Texture Demo: Error in setupContext(): 0x${err.toString(16)}`);
+        let err = gl.getError();
+        if(err != gl.NO_ERROR) zcout(`Camera Texture Demo: Error in setupContext(): 0x${err.toString(16)}`);
       }
 
       function compileShader(gl, type, src) {
