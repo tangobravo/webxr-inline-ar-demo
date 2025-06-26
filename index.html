@@ -240,10 +240,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         const gl = inlineGl;
 
         // Ensure the inline canvas has right aspect ratio
-        let inlineCanvasHeight = Math.round(inlineCanvas.width * ib.height / ib.width);
-        if(inlineCanvas.height != inlineCanvasHeight) {
-          inlineCanvas.height = inlineCanvasHeight;
-          gl.viewport(0, 0, inlineCanvas.width, inlineCanvas.height);
+        const pxWidth = 150 * window.devicePixelRatio;
+        let pxHeight = Math.round(pxWidth * ib.height / ib.width);
+        if(inlineCanvas.height != pxHeight || inlineCanvas.width != pxWidth) {
+          inlineCanvas.width = pxWidth;
+          inlineCanvas.height = pxHeight;
+          inlineCanvas.style.width = `${(pxWidth / window.devicePixelRatio).toFixed(3)}px`;
+          inlineCanvas.style.height = `${(pxHeight / window.devicePixelRatio).toFixed(3)}px`;
+          gl.viewport(0, 0, pxWidth, pxHeight);
         }
 
         // Update the camera texture
