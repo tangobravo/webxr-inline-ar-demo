@@ -100,7 +100,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       setupContext(xrGl);
 
-      let bitmapRenderer = document.getElementById('inline-canvas').getContext('bitmaprenderer');
+      // Inline WebGL canvas
+      let inlineCanvas = document.getElementById('inline-canvas');
+      let inlineGl = inlineCanvas.getContext('webgl');
+      let inlineCameraTexture;
+      let inlineVertScaleLoc;
+
+      setupInlineContext();
 
       function checkSupportedState() {
         navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
@@ -230,14 +236,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function renderInlineXRFrame(t, frame, ib) {
+        const gl = inlineGl;
+
         // Ensure the inline canvas has right aspect ratio
-        let inlineCanvasHeight = Math.round(bitmapRenderer.canvas.width * ib.height / ib.width);
-        if(bitmapRenderer.canvas.height != inlineCanvasHeight) {
-          bitmapRenderer.canvas.height = inlineCanvasHeight;
+        let inlineCanvasHeight = Math.round(inlineCanvas.width * ib.height / ib.width);
+        if(inlineCanvas.height != inlineCanvasHeight) {
+          inlineCanvas.height = inlineCanvasHeight;
+          gl.viewport(0, 0, inlineCanvas.width, inlineCanvas.height);
         }
 
-        // For now just transfer the ImageBitmap to the inline canvas
-        bitmapRenderer.transferFromImageBitmap(ib);
+        // Update the camera texture
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ib);
+
+        // Free ImageBitmap resources
+        ib.close();
+
+        // Blit the camera image
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
 
       initXR();
@@ -258,11 +273,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.enableVertexAttribArray(aPositionLoc);
 
         const blitVsSource = `
+            uniform vec4 uVertScale;
             attribute vec4 aPosition;
             varying highp vec2 vUV;
 
             void main(void) {
-              gl_Position = aPosition;
+              gl_Position = aPosition * uVertScale;
               vUV = 0.5 * (aPosition.xy + vec2(1.0, 1.0));
             }
         `;
@@ -289,8 +305,31 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.useProgram(program);
         gl.uniform1i(uTextureLoc, 0);
 
+        let uVertScaleLoc = gl.getUniformLocation(program, "uVertScale");
+        gl.uniform4f(uVertScaleLoc, 1, 1, 1, 1);
+
         let err = gl.getError();
         if(err != gl.NO_ERROR) zcout(`Camera Texture Demo: Error in setupContext(): 0x${err.toString(16)}`);
+
+        return {uTextureLoc, uVertScaleLoc};
+      }
+
+      function setupInlineContext() {
+        const gl = inlineGl;
+
+        // Inline context reuses same blit program and vertex data as the xrGl one
+        let {uVertScaleLoc} = setupContext(gl);
+        inlineVertScaleLoc = uVertScaleLoc;
+
+        // Image bitmap from the OffscreenCanvas needs a flip
+        gl.uniform4f(inlineVertScaleLoc, 1, -1, 1, 1);
+
+        // Bind the camera texture
+        inlineCameraTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, inlineCameraTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       }
 
       function compileShader(gl, type, src) {
