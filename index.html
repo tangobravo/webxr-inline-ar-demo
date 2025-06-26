@@ -87,7 +87,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // XR globals.
       let xrButton = document.getElementById('xr-button');
       let xrSession = null;
-      let xrRefSpace = null;
+      let xrViewerRefSpace = null;
+      let xrLocalRefSpace = null;
       let xrGlBinding = null;
 
       // WebGL scene globals.
@@ -147,7 +148,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      function onSessionStarted(session) {
+      async function onSessionStarted(session) {
         xrSession = session;
         xrButton.innerHTML = 'Exit AR';
 
@@ -159,10 +160,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.addEventListener('end', onSessionEnded);
         xrGlBinding = new XRWebGLBinding(session, xrGl);
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, xrGl) });
-        session.requestReferenceSpace('local').then((refSpace) => {
-          xrRefSpace = refSpace;
-          session.requestAnimationFrame(onXRFrame);
-        });
+        xrViewerRefSpace = await session.requestReferenceSpace('viewer');
+        xrLocalRefSpace = await session.requestReferenceSpace('local');
+
+        session.requestAnimationFrame(onXRFrame);
       }
 
       function onRequestSessionError(ex) {
@@ -188,9 +189,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // The only thing it does in the onXRFrame callback is to obtain the
         // XR camera texture as an ImageBitmap
 
-        let pose = frame.getViewerPose(xrRefSpace);
-        if (pose) {
-          const p = pose.transform.position;
+        let pose = frame.getViewerPose(xrViewerRefSpace);
+        let localToViewer = frame.getPose(xrLocalRefSpace, xrViewerRefSpace);
+        if (localToViewer) {
+          const p = localToViewer.transform.position;
           document.getElementById('pose').innerText = "Position: " +
             p.x.toFixed(3) + ", " + p.y.toFixed(3) + ", " + p.z.toFixed(3);
         } else {
@@ -198,8 +200,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         // Get the camera texture if one can be found
-        // Side note: It's a shame we can't get the camera texture if pose is null
-        // (on ARCore this happens if tracking is initializing or temporarily lost)
         if(!pose) return;
 
         let camera = null;
