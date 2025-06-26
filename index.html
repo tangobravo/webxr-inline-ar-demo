@@ -54,7 +54,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             <input type="checkbox" id="body-fill-height" checked />
             <label for="body-fill-height">Set min-height: 100% for body element</label>
           </div>
+          <div>
+            <input type="checkbox" id="show-navigation-in-fullscreen" checked />
+            <label for="show-navigation-in-fullscreen">Show navigationUI in fullscreen mode</label>
+          </div>
           <button id="xr-button" class="barebones-button" disabled>XR not found</button>
+          <button id="fullscreen-button" class="barebones-button">Request fullscreen</button>
         </details>
       </header>
       <canvas id="inline-canvas" width="150" height="150"></canvas>
@@ -68,6 +73,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           document.body.classList.remove('fill-height');
         }
       });
+
+      let fullscreenButton = document.getElementById('fullscreen-button');
+      fullscreenButton.addEventListener('click', onFullscreenClicked);
+      
+      let navigationUICheckbox = document.getElementById('show-navigation-in-fullscreen'); 
+
+      function onFullscreenClicked() {
+        let options = {navigationUI: navigationUICheckbox.checked ? "show" : "hide"};
+        document.documentElement.requestFullscreen(options);
+      }
 
       // XR globals.
       let xrButton = document.getElementById('xr-button');
