@@ -47,8 +47,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             avoid the enforced full-screen switch and extreme aspect
             ratio. I assume it could also offer better performance.
           </p>
-          <div id="session-info"></div>
-          <div id="pose"></div>
           <div id="warning-zone"></div>
           <div>
             <input type="checkbox" id="body-fill-height" checked />
@@ -139,10 +137,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onButtonClicked() {
         if (!xrSession) {
-            // Ask for an optional DOM Overlay, see https://immersive-web.github.io/dom-overlays/
             navigator.xr.requestSession('immersive-ar', {
-                requiredFeatures: ['camera-access'],
-                optionalFeatures: ['dom-overlay'],
+                requiredFeatures: ['camera-access', 'dom-overlay'],
                 domOverlay: {root: document.documentElement }
             }).then(onSessionStarted, onRequestSessionError);
         } else {
@@ -153,11 +149,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       async function onSessionStarted(session) {
         xrSession = session;
         xrButton.innerHTML = 'Exit AR';
-
-        // Show which type of DOM Overlay got enabled (if any)
-        if (session.domOverlayState) {
-          document.getElementById('session-info').innerHTML = 'DOM Overlay type: ' + session.domOverlayState.type;
-        }
 
         session.addEventListener('end', onSessionEnded);
         xrGlBinding = new XRWebGLBinding(session, xrGl);
@@ -183,7 +174,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionEnded(event) {
         xrSession = null;
         xrButton.innerHTML = 'Enter AR';
-        document.getElementById('session-info').innerHTML = '';
       }
 
       function onXRFrame(t, frame) {
@@ -195,29 +185,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // XR camera texture as an ImageBitmap
 
         let pose = frame.getViewerPose(xrViewerRefSpace);
-        let localToViewer = frame.getPose(xrLocalRefSpace, xrViewerRefSpace);
-        if (localToViewer) {
-          const p = localToViewer.transform.position;
-          document.getElementById('pose').innerText = "Position: " +
-            p.x.toFixed(3) + ", " + p.y.toFixed(3) + ", " + p.z.toFixed(3);
-        } else {
-          document.getElementById('pose').innerText = "Position: (null pose)";
-        }
-
-        // Get the camera texture if one can be found
         if(!pose) return;
 
-        let camera = null;
+        // Get the camera texture if one can be found
+        let cameraView = null;
         let texture = null;
-        let cameraProjection = null;
         for(const view of pose.views) {
           if(!view.camera) continue;
           
           texture = xrGlBinding.getCameraImage(view.camera);
           if(!texture) continue;
 
-          camera = view.camera;
-          cameraProjection = view.projectionMatrix;
+          cameraView = view;
           break;
         }
 
@@ -225,6 +204,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if(!texture) return;
 
         // Update the OffscreenCanvas size to match
+        let camera = cameraView.camera;
         if(camera.width != xrCanvas.width || camera.height != xrCanvas.height) {
           xrCanvas.width = camera.width;
           xrCanvas.height = camera.height;
@@ -240,15 +220,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let ib = xrCanvas.transferToImageBitmap();
 
         // Pass to another function to render to the inline canvas
-        renderInlineXRFrame(t, frame, cameraProjection, ib);
+        renderInlineXRFrame(t, frame, cameraView, ib);
       }
 
-      function renderInlineXRFrame(t, frame, cameraProjection, ib) {
+      function renderInlineXRFrame(t, frame, cameraView, ib) {
         const gl = inlineGl;
+        const camera = cameraView.camera;
 
         // Ensure the inline canvas has right aspect ratio
         const pxWidth = 150 * window.devicePixelRatio;
-        let pxHeight = Math.round(pxWidth * ib.height / ib.width);
+        let pxHeight = Math.round(pxWidth * camera.height / camera.width);
         if(inlineCanvas.height != pxHeight || inlineCanvas.width != pxWidth) {
           inlineCanvas.width = pxWidth;
           inlineCanvas.height = pxHeight;
@@ -274,7 +255,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let localToViewer = frame.getPose(xrLocalRefSpace, xrViewerRefSpace);
         if(localToViewer) {
           gl.bindTexture(gl.TEXTURE_2D, inlineLogoTexture);
-          gl.uniformMatrix4fv(inlineProjectionLoc, false, cameraProjection);
+          gl.uniformMatrix4fv(inlineProjectionLoc, false, cameraView.projectionMatrix);
           gl.uniformMatrix4fv(inlineViewLoc, false, localToViewer.transform.matrix);
           gl.uniform4f(inlineVertScaleLoc, 0.1, -0.1, 0.1, 1);
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
