@@ -1,3 +1,6 @@
+Works in Chrome on Android phones. Try it here:
+https://tangobravo.github.io/webxr-inline-ar-demo/
+
 This sample demonstrates how an `immersive-ar` session with `camera-access`
 and `dom-overlay` features can be used to render an AR scene to a DOM canvas
 with correct frame sync and reasonable performance.
@@ -5,7 +8,7 @@ with correct frame sync and reasonable performance.
 It also demonstrates some differences between the `immersive-ar` fullscreen
 mode and the behaviour of an `immersive-ar` session with `dom-overlay`.
 
-I believ a native "inline-ar" session type would be preferable to avoid the
+I believe a native "inline-ar" session type would be preferable to avoid the
 enforced full-screen switch and extreme aspect ratio. I assume it could also
 offer better performance than this approach.
 
