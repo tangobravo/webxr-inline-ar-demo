@@ -89,20 +89,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrLocalRefSpace = null;
       let xrGlBinding = null;
 
-      // WebGL scene globals.
-      let xrCanvas = new OffscreenCanvas(256, 256);
-      let xrGl = xrCanvas.getContext('webgl', {
-          xrCompatible: true
-      });
-
       const identityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
-
-      setupContext(xrGl);
 
       // Inline WebGL canvas
       let inlineCanvas = document.getElementById('inline-canvas');
-      let inlineGl = inlineCanvas.getContext('webgl');
-      let inlineCameraTexture;
+      let inlineGl = inlineCanvas.getContext('webgl', {
+        xrCompatible: true
+      });
       let inlineLogoTexture;
       let inlineProjectionLoc;
       let inlineViewLoc;
@@ -151,9 +144,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.innerHTML = 'Exit AR';
 
         session.addEventListener('end', onSessionEnded);
-        xrGlBinding = new XRWebGLBinding(session, xrGl);
+        xrGlBinding = new XRWebGLBinding(session, inlineGl);
         session.updateRenderState({
-          baseLayer: new XRWebGLLayer(session, xrGl),
+          baseLayer: new XRWebGLLayer(session, inlineGl),
           depthNear: 0.01,
           depthFar: 100 });
         xrViewerRefSpace = await session.requestReferenceSpace('viewer');
@@ -203,27 +196,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Couldn't get the texture
         if(!texture) return;
 
-        // Update the OffscreenCanvas size to match
-        let camera = cameraView.camera;
-        if(camera.width != xrCanvas.width || camera.height != xrCanvas.height) {
-          xrCanvas.width = camera.width;
-          xrCanvas.height = camera.height;
-          xrGl.viewport(0, 0, xrCanvas.width, xrCanvas.height);
-        }
-        
-        // Blit the camera texture to the OffscreenCanvas
-        xrGl.bindTexture(xrGl.TEXTURE_2D, texture);
-        xrGl.drawArrays(xrGl.TRIANGLE_STRIP, 0, 4);
-        xrGl.bindTexture(xrGl.TEXTURE_2D, null);
-
-        // Transfer to image bitmap
-        let ib = xrCanvas.transferToImageBitmap();
-
         // Pass to another function to render to the inline canvas
-        renderInlineXRFrame(t, frame, cameraView, ib);
+        renderInlineXRFrame(t, frame, cameraView, texture);
       }
 
-      function renderInlineXRFrame(t, frame, cameraView, ib) {
+      function renderInlineXRFrame(t, frame, cameraView, cameraTexture) {
         const gl = inlineGl;
         const camera = cameraView.camera;
 
@@ -238,17 +215,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           gl.viewport(0, 0, pxWidth, pxHeight);
         }
 
-        // Update the camera texture
-        gl.bindTexture(gl.TEXTURE_2D, inlineCameraTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ib);
-
-        // Free ImageBitmap resources
-        ib.close();
-
-        // Blit the camera image
+        // Draw the camera image
+        gl.bindTexture(gl.TEXTURE_2D, cameraTexture);
         gl.uniformMatrix4fv(inlineProjectionLoc, false, identityMatrix);
         gl.uniformMatrix4fv(inlineViewLoc, false, identityMatrix);
-        gl.uniform4f(inlineVertScaleLoc, 1, -1, 1, 1);
+        gl.uniform4f(inlineVertScaleLoc, 1, 1, 1, 1);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
         // Draw the logo texture
@@ -336,21 +307,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function setupInlineContext() {
         const gl = inlineGl;
 
-        // Inline context reuses same blit program and vertex data as the xrGl one
+        // Keep the basic blit program and quad setup in a separate function
+        // This makes it simpler to switch back to a dedicated OffscreenCanvas
+        // for WebXR in future
         let {uProjectionLoc, uViewLoc, uVertScaleLoc} = setupContext(gl);
         inlineProjectionLoc = uProjectionLoc;
         inlineViewLoc = uViewLoc;
         inlineVertScaleLoc = uVertScaleLoc;
-
-        // Image bitmap from the OffscreenCanvas needs a flip
-        gl.uniform4f(inlineVertScaleLoc, 1, -1, 1, 1);
-
-        // Bind the camera texture
-        inlineCameraTexture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, inlineCameraTexture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 
         // WebXR Logo
         inlineLogoTexture = gl.createTexture();
