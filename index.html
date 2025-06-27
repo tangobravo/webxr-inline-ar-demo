@@ -96,8 +96,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrGl = xrCanvas.getContext('webgl', {
           xrCompatible: true
       });
-      let vertexBuffer = null;
-      let program = null;
 
       const identityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
 
@@ -292,7 +290,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
              1.0, -1.0,
              1.0,  1.0]);
 
-        vertexBuffer = gl.createBuffer();
+        let vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
