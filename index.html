@@ -52,12 +52,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             <input type="checkbox" id="body-fill-height" checked />
             <label for="body-fill-height">Set min-height: 100% for body element</label>
           </div>
-          <div>
-            <input type="checkbox" id="show-navigation-in-fullscreen" checked />
-            <label for="show-navigation-in-fullscreen">Show navigationUI in fullscreen mode</label>
-          </div>
           <button id="xr-button" class="barebones-button" disabled>XR not found</button>
-          <button id="fullscreen-button" class="barebones-button">Request fullscreen</button>
+          <p></p>
+          <div id="fullscreen-controls">
+            <div>
+              <input type="checkbox" id="show-navigation-in-fullscreen" checked />
+              <label for="show-navigation-in-fullscreen">Show navigationUI in fullscreen mode</label>
+            </div>
+            <button id="fullscreen-button" class="barebones-button">Toggle fullscreen</button>
+          </div>
         </details>
       </header>
       <canvas id="inline-canvas" width="150" height="150"></canvas>
@@ -72,6 +75,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       });
 
+      let fullscreenControls = document.getElementById('fullscreen-controls');
       let fullscreenButton = document.getElementById('fullscreen-button');
       fullscreenButton.addEventListener('click', onFullscreenClicked);
       
@@ -79,7 +83,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onFullscreenClicked() {
         let options = {navigationUI: navigationUICheckbox.checked ? "show" : "hide"};
-        document.documentElement.requestFullscreen(options);
+        if(document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          document.documentElement.requestFullscreen(options);
+        }
       }
 
       // XR globals.
@@ -142,6 +150,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       async function onSessionStarted(session) {
         xrSession = session;
         xrButton.innerHTML = 'Exit AR';
+        fullscreenControls.style.display = 'none';
 
         session.addEventListener('end', onSessionEnded);
         xrGlBinding = new XRWebGLBinding(session, inlineGl);
@@ -167,6 +176,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionEnded(event) {
         xrSession = null;
         xrButton.innerHTML = 'Enter AR';
+        fullscreenControls.style.display = 'block';
       }
 
       function onXRFrame(t, frame) {
