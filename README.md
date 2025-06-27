@@ -1,4 +1,5 @@
 Works in Chrome on Android phones. Try it here:
+
 https://tangobravo.github.io/webxr-inline-ar-demo/
 
 This sample demonstrates how an `immersive-ar` session with `camera-access`
@@ -14,4 +15,5 @@ offer better performance than this approach.
 
 Originally based on the ar-barbones sample from Immersive WebXR Samples Repo.
 LICENSE.md, css, and the WebXR logo were also taken from the same source.
+
 https://github.com/immersive-web/webxr-samples
