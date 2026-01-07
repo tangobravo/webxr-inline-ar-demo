@@ -42,43 +42,63 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scene to a DOM canvas with correct frame sync and
             reasonable performance.
           </p>
+          <p>
+            body min-height:
+            <select id="body-min-height-select">
+              <option value="none">None</option>
+              <option selected value="fill-height">100%</option>
+              <option value="extra-height">2000px</option>
+            </select>
+          </p>
+          <p>
+            meta viewport-fit:
+            <select id="viewport-fit-select">
+              <option selected value="none">unspecified</option>
+              <option value="cover">cover</option>
+              <option value="contain">contain</option>
+            </select>
+          </p>
+          <p>
+            fullscreen navigationUI:
+            <select id="navigation-ui-select">
+              <option selected value="show">show</option>
+              <option value="hide">hide</option>
+            </select>
+          </p>
           <div id="warning-zone"></div>
-          <div>
-            <input type="checkbox" id="body-fill-height" checked />
-            <label for="body-fill-height">Set min-height: 100% for body element</label>
-          </div>
           <button id="xr-button" class="barebones-button" disabled>XR not found</button>
-          <p></p>
-          <div id="fullscreen-controls">
-            <div>
-              <input type="checkbox" id="show-navigation-in-fullscreen" checked />
-              <label for="show-navigation-in-fullscreen">Show navigationUI in fullscreen mode</label>
-            </div>
-            <button id="fullscreen-button" class="barebones-button">Toggle fullscreen</button>
-          </div>
+          <button id="fullscreen-button" class="barebones-button">Toggle fullscreen</button>
         </details>
       </header>
       <canvas id="inline-canvas" width="150" height="150"></canvas>
     </div>
     <div id="fixed-bottom-right"></div>
     <script type="module">
-      let bodyFillHeightCheckbox = document.getElementById('body-fill-height');
-      bodyFillHeightCheckbox.addEventListener('change', (ev) => {
-        if(bodyFillHeightCheckbox.checked) {
-          document.body.classList.add('fill-height');
+      const viewportElem = document.querySelector('meta[name="viewport"]');
+      const viewportDefault = viewportElem.content;
+
+      const bodyMinHeightSelect = document.getElementById('body-min-height-select');
+      const viewportFitSelect = document.getElementById('viewport-fit-select');
+      const navigationUiSelect = document.getElementById('navigation-ui-select');
+
+      bodyMinHeightSelect.addEventListener("change", () => {
+        document.body.classList.remove('fill-height', 'extra-height');
+        if(bodyMinHeightSelect.value != 'none') document.body.classList.add(bodyMinHeightSelect.value)
+      });
+
+      viewportFitSelect.addEventListener("change", () => {
+        if(viewportFitSelect.value == 'none') {
+          viewportElem.content = viewportDefault;
         } else {
-          document.body.classList.remove('fill-height');
+          viewportElem.content = `${viewportDefault}, viewport-fit=${viewportFitSelect.value}`;
         }
       });
 
-      let fullscreenControls = document.getElementById('fullscreen-controls');
       let fullscreenButton = document.getElementById('fullscreen-button');
       fullscreenButton.addEventListener('click', onFullscreenClicked);
-      
-      let navigationUICheckbox = document.getElementById('show-navigation-in-fullscreen'); 
 
       function onFullscreenClicked() {
-        let options = {navigationUI: navigationUICheckbox.checked ? "show" : "hide"};
+        let options = {navigationUI: navigationUiSelect.value};
         if(document.fullscreenElement) {
           document.exitFullscreen();
         } else {
@@ -146,7 +166,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       async function onSessionStarted(session) {
         xrSession = session;
         xrButton.innerHTML = 'Exit AR';
-        fullscreenControls.style.display = 'none';
 
         session.addEventListener('end', onSessionEnded);
         xrGlBinding = new XRWebGLBinding(session, inlineGl);
@@ -172,7 +191,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionEnded(event) {
         xrSession = null;
         xrButton.innerHTML = 'Enter AR';
-        fullscreenControls.style.display = 'block';
       }
 
       function onXRFrame(t, frame) {

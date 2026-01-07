@@ -16,6 +16,10 @@ body.fill-height {
   min-height: 100%;
 }
 
+body.extra-height {
+  min-height: 2000px;
+}
+
 header {
   position: relative;
   z-index: 2;
