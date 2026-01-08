@@ -43,6 +43,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             slowly changing color to prove it's working.
             <a class="back" href="./index.html">Back</a>
           </p>
+          <p>
+            <input type="checkbox" id="require-camera-access" checked />
+            <label for="require-camera-access">Add camera-access to requiredFeatures</label>
+          </p>
           <div id="session-info"></div>
           <div id="pose"></div>
           <div id="warning-zone"></div>
@@ -90,10 +94,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onButtonClicked() {
         if (!xrSession) {
             // Ask for an optional DOM Overlay, see https://immersive-web.github.io/dom-overlays/
-            navigator.xr.requestSession('immersive-ar', {
+            let sessionOptions = {
                 optionalFeatures: ['dom-overlay'],
                 domOverlay: {root: document.getElementById('overlay')}
-            }).then(onSessionStarted, onRequestSessionError);
+            };
+
+            // Optionally add camera-access as a requiredFeature
+            if(document.getElementById('require-camera-access').checked) {
+              sessionOptions['requiredFeatures'] = ['camera-access'];
+            }
+
+            navigator.xr.requestSession('immersive-ar', sessionOptions).then(onSessionStarted, onRequestSessionError);
         } else {
           xrSession.end();
         }
