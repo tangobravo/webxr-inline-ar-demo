@@ -48,6 +48,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             <input type="checkbox" id="require-camera-access" checked />
             <label for="require-camera-access">Add camera-access to requiredFeatures</label>
           </p>
+          <p>
+            <input type="checkbox" id="delay-after-start" checked />
+            <label for="delay-after-start">Add 5s delay in onSessionStarted</label>
+          </p>
           <div id="session-info"></div>
           <div id="pose"></div>
           <div id="warning-zone"></div>
@@ -112,7 +116,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
       }
 
-      function onSessionStarted(session) {
+      async function onSessionStarted(session) {
         xrSession = session;
         xrButton.innerHTML = 'Exit AR';
 
@@ -122,6 +126,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         session.addEventListener('end', onSessionEnded);
+
+        if(document.getElementById('delay-after-start').checked) {
+          await new Promise((resolve) => { setTimeout(() => {resolve()}, 5000) });
+        }
+
         let canvas = document.createElement('canvas');
         gl = canvas.getContext('webgl', {
           xrCompatible: true
