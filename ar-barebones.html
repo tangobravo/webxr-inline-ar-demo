@@ -35,6 +35,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <div id="overlay">
       <div id="bottom-edge" style="position: fixed; left: 0; right: 0; bottom: 0; height: 8px; background-color: blue;">
       </div>
+      <div id="touch-indicator-x" style="visibility: hidden; position: fixed; left: 0; top: 0; bottom: 0; width: 4px; background-color: rgba(0,128,0,0.5);">
+      </div>
+      <div id="touch-indicator-y" style="visibility: hidden; position: fixed; left: 0; right: 0; top: 0; height: 4px; background-color: rgba(0,128,0,0.5);">
+      </div>
       <header>
         <details open>
           <summary>Barebones WebXR DOM Overlay</summary>
@@ -64,6 +68,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       <p>Click 'Enter AR' to see content</p>
     </main>
     <script type="module">
+      // Touch position indicators
+      const touchIndicatorX = document.getElementById('touch-indicator-x');
+      const touchIndicatorY = document.getElementById('touch-indicator-y');
+      const updateIndicators = (ev) => {
+        if(ev.touches.length == 1) {
+          touchIndicatorX.style.visibility = 'visible';
+          touchIndicatorX.style.left = `${ev.touches.item(0).clientX - 2}px`; 
+          touchIndicatorY.style.visibility = 'visible';
+          touchIndicatorY.style.top = `${ev.touches.item(0).clientY - 2}px`; 
+        } else {
+          touchIndicatorX.style.visibility = 'hidden';
+          touchIndicatorY.style.visibility = 'hidden';
+        }
+      }
+
+      window.addEventListener('touchstart', updateIndicators);
+      window.addEventListener('touchmove', updateIndicators);
+      window.addEventListener('touchend', updateIndicators);
+      window.addEventListener('touchcancel', updateIndicators);
+
+
       // XR globals.
       let xrButton = document.getElementById('xr-button');
       let xrSession = null;
