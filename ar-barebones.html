@@ -29,7 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
 
-    <title>Barebones AR</title>
+    <title>Barebones WebXR DOM Overlay</title>
   </head>
   <body>
     <div id="overlay">
@@ -43,11 +43,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <details open>
           <summary>Barebones WebXR DOM Overlay</summary>
           <p>
-            This sample demonstrates extremely simple use of an "immersive-ar"
-            session with no library dependencies, with an optional DOM overlay.
-            It doesn't render anything exciting, just draws a rectangle with a
-            slowly changing color to prove it's working.
-            <a class="back" href="./index.html">Back</a>
+            A modified version of the
+            <a href="https://immersive-web.github.io/webxr-samples/ar-barebones.html">Barebones AR</a>
+            WebXR sample page to help repro <a href="https://issues.chromium.org/issues/474140206">this Chrome bug</a>.
           </p>
           <p>
             <input type="checkbox" id="require-camera-access" checked />
