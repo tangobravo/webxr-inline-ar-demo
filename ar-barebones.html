@@ -31,7 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     <title>Barebones WebXR DOM Overlay</title>
   </head>
-  <body>
+  <body style="padding:0;">
     <div id="overlay">
       <div id="bottom-edge" style="position: fixed; left: 0; right: 0; bottom: 0; height: 8px; background-color: blue;">
       </div>
@@ -55,8 +55,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             <input type="checkbox" id="delay-after-start" checked />
             <label for="delay-after-start">Add 5s delay in onSessionStarted</label>
           </p>
-          <div id="session-info"></div>
-          <div id="pose"></div>
           <div id="warning-zone"></div>
           <button id="xr-button" class="barebones-button" disabled>XR not found</button>
         </details>
@@ -143,11 +141,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrSession = session;
         xrButton.innerHTML = 'Exit AR';
 
-        // Show which type of DOM Overlay got enabled (if any)
-        if (session.domOverlayState) {
-          document.getElementById('session-info').innerHTML = 'DOM Overlay type: ' + session.domOverlayState.type;
-        }
-
         session.addEventListener('end', onSessionEnded);
 
         if(document.getElementById('delay-after-start').checked) {
@@ -177,7 +170,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function onSessionEnded(event) {
         xrSession = null;
         xrButton.innerHTML = 'Enter AR';
-        document.getElementById('session-info').innerHTML = '';
         gl = null;
       }
 
@@ -197,15 +189,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let time = Date.now();
         gl.clearColor(Math.cos(time / 2000), Math.cos(time / 4000), Math.cos(time / 6000), 0.5);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        let pose = frame.getViewerPose(xrRefSpace);
-        if (pose) {
-          const p = pose.transform.position;
-          document.getElementById('pose').innerText = "Position: " +
-            p.x.toFixed(3) + ", " + p.y.toFixed(3) + ", " + p.z.toFixed(3);
-        } else {
-          document.getElementById('pose').innerText = "Position: (null pose)";
-        }
       }
 
       initXR();
