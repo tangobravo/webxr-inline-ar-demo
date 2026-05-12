@@ -59,7 +59,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             <input type="text" id="demo-text" inputmode="text" placeholder="Demo Text Field" />
           </p>
           <p>
-            WebXR Viewport: <span id="webxr-viewport-span"></span>
+            WebXR Viewport: <span id="webxr-viewport-span">-</span>
+            <br>
+            Fullscreen Elem: <span id="fullscreen-client-rect-span">-</span>
             <br>
             Visual Viewport: <span id="visual-viewport-span"></span>
             <br>
@@ -99,17 +101,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let latestScreenHeight = 0;
       let latestVisualViewportWidth = 0;
       let latestVisualViewportHeight = 0;
+      let latestFullscreenWidth = 0;
+      let latestFullscreenHeight = 0;
       let latestWebXRViewportWidth = 0;
       let latestWebXRViewportHeight = 0;
       const screenSpan = document.getElementById('screen-span');
       const visualViewportSpan = document.getElementById('visual-viewport-span');
+      const fullscreenRectSpan = document.getElementById('fullscreen-client-rect-span');
       const webxrViewportSpan = document.getElementById('webxr-viewport-span');
 
       const updateSizes = () => {
         let { width, height } = window.screen;
         if(width != latestScreenWidth || height != latestScreenHeight) {
           const dpr = window.devicePixelRatio;
-          const sizeText = `${(width * dpr).toFixed(2)} x ${(height * dpr).toFixed(2)} (${width} x ${height})`;
+          const sizeText = `${(width * dpr).toFixed(1)} x ${(height * dpr).toFixed(1)} (${width} x ${height})`;
           console.log(`Screen size: ${sizeText}`);
           screenSpan.innerText = sizeText;
           latestScreenWidth = width;
@@ -120,12 +125,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           let { width, height } = window.visualViewport;
           if(width != latestVisualViewportWidth || height != latestVisualViewportHeight) {
             const dpr = window.devicePixelRatio;
-            const sizeText = `${(width * dpr).toFixed(2)} x ${(height * dpr).toFixed(2)} (${width.toFixed(2)} x ${height.toFixed(2)})`;
+            const sizeText = `${(width * dpr).toFixed(1)} x ${(height * dpr).toFixed(1)} (${width.toFixed(2)} x ${height.toFixed(2)})`;
             console.log(`Visual viewport size: ${sizeText}`);
             visualViewportSpan.innerText = sizeText;
             latestVisualViewportWidth = width;
             latestVisualViewportHeight = height;
           }
+        }
+
+        let fsWidth = 0;
+        let fsHeight = 0;
+        if(document.fullscreenElement) {
+          let clientRect = document.fullscreenElement.getBoundingClientRect();
+          fsWidth = clientRect.width;
+          fsHeight = clientRect.height;
+        }
+
+        if(fsWidth != latestFullscreenWidth || fsHeight != latestFullscreenHeight) {
+            const dpr = window.devicePixelRatio;
+            let sizeText = '-';
+            if(fsWidth > 0 || fsHeight > 0) {
+              sizeText = `${(fsWidth * dpr).toFixed(1)} x ${(fsHeight * dpr).toFixed(1)} (${fsWidth.toFixed(2)} x ${fsHeight.toFixed(2)})`;
+              console.log(`Fullscreen element client size: ${sizeText}`);
+            }
+            fullscreenRectSpan.innerText = sizeText;
+            latestFullscreenWidth = fsWidth;
+            latestFullscreenHeight = fsHeight;
         }
       }
       updateSizes();
@@ -228,6 +253,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = null;
 
         updateSizes();
+        latestWebXRViewportWidth = 0;
+        latestWebXRViewportHeight = 0;
+        webxrViewportSpan.innerText = '-';
       }
 
       function onXRFrame(t, frame) {
