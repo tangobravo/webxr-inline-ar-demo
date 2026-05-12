@@ -92,6 +92,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = document.getElementById('xr-button');
       let xrSession = null;
       let xrRefSpace = null;
+      let xrWebGLLayer = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -154,8 +155,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl = canvas.getContext('webgl', {
           xrCompatible: true
         });
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-        session.requestReferenceSpace('local').then((refSpace) => {
+        xrWebGLLayer = new XRWebGLLayer(session, gl);
+        console.log(`XRWebGLLayer framebuffer size: ${xrWebGLLayer.framebufferWidth} x ${xrWebGLLayer.framebufferHeight}`);
+        session.updateRenderState({ baseLayer: xrWebGLLayer });
+        session.requestReferenceSpace('viewer').then((refSpace) => {
           xrRefSpace = refSpace;
           session.requestAnimationFrame(onXRFrame);
         });
@@ -180,15 +183,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         session.requestAnimationFrame(onXRFrame);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+        let viewerPose = frame.getViewerPose(xrRefSpace);
+        if(!viewerPose) return;
+
+        let xrView = viewerPose.views[0];
+        if(!xrView) return;
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, xrWebGLLayer.framebuffer);
+        let xrViewport = xrWebGLLayer.getViewport(xrView);
 
         // Update the clear color so that we can observe the color in the
-        // headset changing over time. Use a scissor rectangle to keep the AR
-        // scene visible.
-        const width = session.renderState.baseLayer.framebufferWidth;
-        const height = session.renderState.baseLayer.framebufferHeight;
+        // headset changing over time. Use a scissor rectangle to keep a border
+        // fully transparent
         gl.enable(gl.SCISSOR_TEST);
-        gl.scissor(width / 4, height / 4, width / 2, height / 2);
+        gl.scissor(xrViewport.x + 100, xrViewport.y + 100, xrViewport.width - 200, xrViewport.height - 200);
         let time = Date.now();
         gl.clearColor(Math.cos(time / 2000), Math.cos(time / 4000), Math.cos(time / 6000), 0.5);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
