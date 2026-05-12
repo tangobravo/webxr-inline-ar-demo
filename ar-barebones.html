@@ -58,6 +58,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           <p>
             <input type="text" id="demo-text" inputmode="text" placeholder="Demo Text Field" />
           </p>
+          <p>
+            WebXR Viewport: <span id="webxr-viewport-span"></span>
+            <br>
+            Visual Viewport: <span id="visual-viewport-span"></span>
+            <br>
+            window.screen: <span id="screen-span"></span>
+          </p>
           <div id="warning-zone"></div>
           <button id="xr-button" class="barebones-button" disabled>XR not found</button>
         </details>
@@ -86,6 +93,47 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       window.addEventListener('touchmove', updateIndicators);
       window.addEventListener('touchend', updateIndicators);
       window.addEventListener('touchcancel', updateIndicators);
+
+      // Measured sizes
+      let latestScreenWidth = 0;
+      let latestScreenHeight = 0;
+      let latestVisualViewportWidth = 0;
+      let latestVisualViewportHeight = 0;
+      let latestWebXRViewportWidth = 0;
+      let latestWebXRViewportHeight = 0;
+      const screenSpan = document.getElementById('screen-span');
+      const visualViewportSpan = document.getElementById('visual-viewport-span');
+      const webxrViewportSpan = document.getElementById('webxr-viewport-span');
+
+      const updateSizes = () => {
+        let { width, height } = window.screen;
+        if(width != latestScreenWidth || height != latestScreenHeight) {
+          const dpr = window.devicePixelRatio;
+          const sizeText = `${(width * dpr).toFixed(2)} x ${(height * dpr).toFixed(2)} (${width} x ${height})`;
+          console.log(`Screen size: ${sizeText}`);
+          screenSpan.innerText = sizeText;
+          latestScreenWidth = width;
+          latestScreenHeight = height;
+        }
+
+        if(window.visualViewport) {
+          let { width, height } = window.visualViewport;
+          if(width != latestVisualViewportWidth || height != latestVisualViewportHeight) {
+            const dpr = window.devicePixelRatio;
+            const sizeText = `${(width * dpr).toFixed(2)} x ${(height * dpr).toFixed(2)} (${width.toFixed(2)} x ${height.toFixed(2)})`;
+            console.log(`Visual viewport size: ${sizeText}`);
+            visualViewportSpan.innerText = sizeText;
+            latestVisualViewportWidth = width;
+            latestVisualViewportHeight = height;
+          }
+        }
+      }
+      updateSizes();
+
+      if(window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateSizes);
+        window.visualViewport.addEventListener('scroll', updateSizes);
+      }
 
 
       // XR globals.
@@ -144,6 +192,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       async function onSessionStarted(session) {
         xrSession = session;
         xrButton.innerHTML = 'Exit AR';
+        updateSizes();
 
         session.addEventListener('end', onSessionEnded);
 
@@ -177,9 +226,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrSession = null;
         xrButton.innerHTML = 'Enter AR';
         gl = null;
+
+        updateSizes();
       }
 
       function onXRFrame(t, frame) {
+        updateSizes();
+
         let session = frame.session;
         session.requestAnimationFrame(onXRFrame);
 
@@ -192,6 +245,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         gl.bindFramebuffer(gl.FRAMEBUFFER, xrWebGLLayer.framebuffer);
         let xrViewport = xrWebGLLayer.getViewport(xrView);
 
+        let {width, height} = xrViewport;
+        if(width != latestWebXRViewportWidth || height != latestWebXRViewportHeight) {
+          let sizeText = `${width} x ${height}`;
+          console.log(`WebXR viewport size: ${sizeText}`);
+          webxrViewportSpan.innerText = sizeText;
+          latestWebXRViewportWidth = width;
+          latestWebXRViewportHeight = height;
+        }
+        
         // Update the clear color so that we can observe the color in the
         // headset changing over time. Use a scissor rectangle to keep a border
         // fully transparent
